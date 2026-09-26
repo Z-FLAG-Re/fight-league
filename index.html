@@ -3950,8 +3950,8 @@ function askChoice(title,labels){
 }
 async function after(){
   render();
-  if(G.win){ if(MODE==='online') await pushOnline(); fin(); return; }
-  if(MODE==='online'){ await pushOnline(); if(G.act!==ME) waitOpp(); else pPhase(); return; }
+  if(G.win){ if(MODE==='online') await pushOnline(true); fin(); return; }
+  if(MODE==='online'){ await pushOnline(true); if(G.act!==ME) waitOpp(); else pPhase(); return; }
   if(MODE==='p2p'){                 // 通信は自動なので1手ごとに同期
     sendPacket();
     if(G.act===ME) pPhase(); else { stopT(); info('相手の手番…'); }
@@ -4340,7 +4340,7 @@ function fin(){
   if(FINDONE){ return; }            // 決着処理は1試合につき1回だけ
   FINDONE=true;
   stopT(); render();
-  if(MODE==='online') pushOnline();
+  if(MODE==='online') pushOnline(true);
   else if(MODE==='p2p'||MODE==='paste') sendPacket();
   $('resBig').textContent=G.win==='draw'?'DRAW':(G.win===ME?'WIN':'LOSE');
   $('resBig').style.color=G.win===ME?'var(--ok)':(G.win==='draw'?'var(--gold)':'#ff8c84');
@@ -4507,7 +4507,10 @@ function hydrate(o){ o.rng=Math.random; return o; }
 // 1部屋=1ドキュメント。中身は JSON 文字列 p にまとめて入れる（入れ子の配列を避けるため）
 const roomRef=c=>db.collection(FLCOL).doc(RKEY(c));
 const roomFields=p=>({p:JSON.stringify(p),seq:p.seq||0,phase:p.phase||'',kind:p.kind||'room',host:p.host||'',ts:Date.now()});
-async function rget(k){ try{ const s=await roomRef(k).get(); if(!s.exists) return null;
+async function rget(k,fast){ try{ const ref=roomRef(k); let s=null;
+  if(fast&&UNSUB){ try{ s=await ref.get({source:'cache'}); if(!s.exists) s=null; }catch(e){ s=null; } }
+  if(!s) s=await ref.get();
+  if(!s.exists) return null;
   const d=s.data()||{}; return d.p?JSON.parse(d.p):null; }catch(e){ return null; } }
 async function rset(k,v){ try{ await roomRef(k).set(roomFields(v)); return true; }catch(e){ return false; } }
 async function rdel(k){ try{ await roomRef(k).delete(); }catch(e){} }
@@ -4543,6 +4546,7 @@ function openOnline(){
 function stopScan(){ if(RSCAN){ clearInterval(RSCAN); RSCAN=null; } }
 function stopPoll(){ if(UNSUB){ try{ UNSUB(); }catch(e){} UNSUB=null; }
   if(ULIVE){ try{ ULIVE(); }catch(e){} ULIVE=null; } LIVELAST='';
+  if(PRETRY){ clearTimeout(PRETRY); PRETRY=null; }
   if(POLL){ clearInterval(POLL); POLL=null; } }
 function leaveOnline(){ const w=WROOM, rc=ROOM; WROOM=null;
   stopPoll(); stopScan();
@@ -4665,7 +4669,8 @@ function startPoll(){ stopPoll();
   POLL=setInterval(()=>pollOnce(),4000);
   pollOnce();
 }
-let PBUSY=false, PPEND=false;
+let PBUSY=false, PPEND=false, PRETRY=null;
+function pollSoon(){ if(PRETRY) return; PRETRY=setTimeout(()=>{ PRETRY=null; pollOnce(); },250); }
 async function pollOnce(pre){
   if(MODE!=='online'||!ROOM) return;
   if(PBUSY){ PPEND=true; return; }
@@ -4677,7 +4682,7 @@ async function pollOnce(pre){
 
 async function pollRun(pre){
   if(MODE!=='online'||!ROOM) return;
-  const p=pre||await rget(RKEY(ROOM)); if(!p) return;
+  const p=pre||await rget(RKEY(ROOM),true); if(!p) return;
   if(p.phase&&p.phase!=='wait'){ WROOM=null; stopScan(); }
 
   // 新しい対戦が始まっていたら前の試合を破棄
@@ -4724,7 +4729,7 @@ async function pollRun(pre){
   if((p.phase==='play'||p.phase==='over')&&p.g){
     if(!G){ G=hydrate(p.g); SEQ=p.seq||0; LP=G.log.length; enterOnlineBattle(); return; }
     if((p.seq||0)<=SEQ) return;            // 自分の書き込み or 古いデータ
-    if(BUSY) return;                       // 自分の処理中は取り込まない
+    if(BUSY){ pollSoon(); return; }        // 演出中：終わったらすぐ取り込む
     const before=G.log.length;
     G=hydrate(p.g); SEQ=p.seq||0;
     if(G.log.length>before){ LP=before; BUSY=true; await anim(); BUSY=false; }
@@ -4749,12 +4754,16 @@ function enterOnlineBattle(){
   VIEW=null; prevView=null; clearBeams(); renderSpeed(); show('scrBattle'); render();
   if(G.act===ME) pPhase(); else { info('相手の手番…'); stopT(); }
 }
-async function pushOnline(){
-  if(MODE!=='online'||!ROOM) return;
-  const p=await rget(RKEY(ROOM)); if(!p) return;
+let PUSHQ=Promise.resolve(), PUSHED='';
+function pushOnline(fast){ PUSHQ=PUSHQ.then(()=>pushNow(fast),()=>pushNow(fast)); return PUSHQ; }
+async function pushNow(fast){
+  if(MODE!=='online'||!ROOM||!G) return;
+  const sig=MID+'/'+G.log.length+'/'+G.turn+'/'+G.act+'/'+(G.teban||0)+'/'+(G.win||'');
+  if(sig===PUSHED) return;                       // 変化なし（演出前に送った分と同じ）
+  const p=await rget(RKEY(ROOM),fast); if(!p) return;
   p.g=serialize(G); p.phase=G.win?'over':'play';
   p.seq=Math.max((p.seq||1),SEQ)+1;
-  await rset(RKEY(ROOM),p); SEQ=p.seq;
+  if(await rset(RKEY(ROOM),p)){ SEQ=p.seq; PUSHED=sig; }
 }
 function waitOpp(){ stopT(); info('相手の手番…'); }
 
@@ -5096,7 +5105,9 @@ function enterExtBattle(){
   if(G.act===ME){ $('pasteOv').classList.remove('on'); toast('あなたの手番です'); pPhase(); }
   else { stopT(); info('相手の手番…'); if(MODE==='paste') showPasteOut(); }
 }
-function syncNow(){ if(MODE==='p2p') sendPacket(); }   // 演出の前に送る＝相手と同時に演出を見る
+function syncNow(){                                    // 演出の前に送る＝相手と同時に演出を見る
+  if(MODE==='online'){ pushOnline(true); return; }
+  if(MODE==='p2p') sendPacket(); }
 function sendPacket(){
   if(MODE==='p2p'&&G&&G.log.length&&SYNCBASE===G.log.length) return null;   // 送る中身がない（すでに送った）
   const pk=makePacket(); SYNCBASE=G.log.length;
