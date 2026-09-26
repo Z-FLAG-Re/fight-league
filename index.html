@@ -1717,13 +1717,14 @@ function exitSkills(g,f,i,depth){
     if(d.e&&d.e.also&&d.e.also.tr==='exit'&&depth<4){ f._exitCell=i; fire(g,f,d.e.also.ops,{cell:i},'exit'); }
     if(d.e&&(d.e.tr==='exit'||d.e.tr==='deployExit')&&!(d.e.cond&&!checkCond(g,f,d.e.cond,{}))){ const ops=d.e.zone?(((f.owner==='P')?(i>=6):(i<6))?d.e.zone.own:d.e.zone.foe):pickOps(g,d.e);
       f._exitCell=i; fire(g,f,ops,{cell:i},'exit'); }
-    // 他ファイターの「味方/敵メンバーが退場したとき」
-    for(const m of bySeq(g)){
-      const me3=skl(m); if(!me3) continue;
-      if(me3.tr==='onAllyExit'&&m.owner===f.owner) fire(g,m,resolveOps(g,m,me3),{exited:f},'onAllyExit');
-      else if(me3.tr==='onEnemyExit'&&m.owner!==f.owner) fire(g,m,resolveOps(g,m,me3),{exited:f},'onEnemyExit');
-      else if(me3.tr==='onGhostExit'&&ROSTER[f.key]&&ROSTER[f.key].ghost) fire(g,m,resolveOps(g,m,me3),{exited:f},'onGhostExit');
-    }
+  }
+  // 他ファイターの「味方/敵メンバーが退場したとき」。これは「退場：」ではない常時系なので、
+  // g035 電脳王　アーカイバー（nullifyExit）では止めない
+  if(depth<4) for(const m of bySeq(g)){
+    const me3=skl(m); if(!me3) continue;
+    if(me3.tr==='onAllyExit'&&m.owner===f.owner) fire(g,m,resolveOps(g,m,me3),{exited:f},'onAllyExit');
+    else if(me3.tr==='onEnemyExit'&&m.owner!==f.owner) fire(g,m,resolveOps(g,m,me3),{exited:f},'onEnemyExit');
+    else if(me3.tr==='onGhostExit'&&ROSTER[f.key]&&ROSTER[f.key].ghost) fire(g,m,resolveOps(g,m,me3),{exited:f},'onGhostExit');
   }
   settle(g);
 }
@@ -2522,13 +2523,15 @@ function deployPhase(g,f,idx,key,owner,selUid,fromHand){
       else if(!D.e.cond||checkCond(g,f,D.e.cond,dctx)) fire(g,f,pickOps(g,D.e),dctx,'deploy');
     } }
   // 他メンバーの「味方メンバー登場時」
-  if(!nullified) for(const m of bySeq(g)){ if(m.uid===f.uid||m.owner!==owner)continue;
+  for(const m of bySeq(g)){ if(m.uid===f.uid||m.owner!==owner)continue;
     if(m._smB&&m._smB===f._smB) continue;   // 同時に呼ばれたメンバー同士は反応しない
+    if(m.seq>f.seq) continue;               // 自分より後に出たメンバーは、この登場には反応しない（呼び出し元の登場を数えない）
     const me2=skl(m); const sp=me2&&(me2.tr==='onAllyDeploy'?me2:(me2.also&&me2.also.tr==='onAllyDeploy'?me2.also:null));
     if(sp&&(!sp.cond||checkCond(g,m,sp.cond,{trigger:f}))) fire(g,m,resolveOps(g,m,sp)||sp.ops,{trigger:f},'onAllyDeploy'); }
   // 敵メンバー登場時トリガー
-  if(!nullified) for(const m of bySeq(g)){ if(m.owner===owner) continue;
+  for(const m of bySeq(g)){ if(m.owner===owner) continue;
     if(m._smB&&m._smB===f._smB) continue;   // 同時に呼ばれたメンバー同士は反応しない
+    if(m.seq>f.seq) continue;               // 自分より後に出たメンバーは、この登場には反応しない
     const e3=skl(m); if(e3&&e3.tr==='onEnemyDeploy'&&(!e3.cond||checkCond(g,m,e3.cond,{trigger:f}))) fire(g,m,resolveOps(g,m,e3),{trigger:f},'onEnemyDeploy');
     if(e3&&e3.also&&e3.also.tr==='onEnemyDeploy') fire(g,m,e3.also.ops,{trigger:f},'onEnemyDeploy'); }
   if(D.e&&D.e.tr==='selfPoison'&&alive(g).some(x=>x.uid===f.uid)) setSt(g,f,'poison');
