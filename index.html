@@ -267,12 +267,12 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 .ldm{position:absolute;left:-7px;top:-7px;width:calc(100% + 14px);height:calc(100% + 14px);pointer-events:none;z-index:0}
 .ldm path{fill:none;stroke:rgba(255,85,140,.68);stroke-width:6;stroke-linecap:round}
 .ldm polygon{fill:rgba(255,85,140,.68)}
-.edgridwrap{display:flex;align-items:center;gap:4px;flex:1;min-height:0;container-type:size}
+.edgridwrap{display:flex;align-items:center;gap:4px;flex:1;min-height:0}
 .edpg{flex:none;width:26px;height:70px;border-radius:9px;border:1px solid var(--line);background:#141c2a;color:var(--text);font-size:15px;cursor:pointer}
 .edgrid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,auto);gap:5px;align-content:start}
 .ecard{position:relative;text-align:center;padding:4px 2px 3px;border-radius:10px;background:#0E141F;border:1px solid #243044;touch-action:none;cursor:pointer;overflow:hidden}
-.ecard .chip{width:clamp(30px,calc((100cqh - 80px)/3),46px);margin:0 auto;--gsz:12px;--asz:8.5px}
-.ecard .n{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.ecard .chip{width:46px;margin:0 auto;--gsz:12px;--asz:8.5px}
+.ecard .n{display:none}   /* 一覧では名前を出さない（タップすると上の欄に出る） */
 .ecard .ert{position:absolute;left:3px;top:3px;font-size:8px;padding:1px 3px;z-index:1}
 .ecard .efl{position:absolute;right:3px;top:3px;font-size:8px;color:#8FE9BB;font-weight:800;z-index:1}
 .ecard.used .ecin{filter:brightness(.38)}
@@ -299,8 +299,11 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 /* ビームオーバーレイ */
 .bwrap{position:relative}
 /* 盤面を広げる：盤面の枠が残りの高さを全部使い、その中で盤面を最大に。下の行（HPバー・手札・退出）は画面下へ */
-#scrBattle .bwrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;container-type:size}
-#scrBattle .board{width:min(100cqw,calc(75cqh - 16px))}   /* マスの隙間15px＋余白分を引く（引かないと盤面が上下にはみ出す） */
+/* 各行は縮まず、余った高さを盤面の枠が全部使う。盤面の大きさは fitBoard() が枠を実測して px で入れる */
+#scrBattle{overflow:hidden}
+#scrBattle>.row,#scrBattle>.panel,#scrBattle>.msg,#scrBattle>#handBox{flex:none}
+#scrBattle .bwrap{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center}
+#scrBattle .board{width:min(100%,312px)}   /* JS が入るまでの仮の幅 */
 #beams{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:visible}
 #guide{position:absolute;inset:0;pointer-events:none;z-index:7;overflow:visible}
 .cell.drop{border-color:#FFD166!important;box-shadow:0 0 0 2px #FFD166 inset}
@@ -687,17 +690,17 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 
     <div class="panel" style="margin-bottom:12px">
       <h3 style="margin:0 0 6px;font-size:14px">ルームマッチ</h3>
-      <div class="mutx">部屋を建てると４文字のコードが出ます。相手に伝えて入ってもらってください（建てた側が先攻）。</div>
+      <div class="mutx">部屋を建てると４文字のコードが出ます。相手に伝えて入ってもらってください（先攻・後攻はランダム）。</div>
       <button class="btn sec" style="margin-top:8px" onclick="createRoom()">部屋を建てる</button>
       <div id="hostBox" style="display:none;margin-top:10px">
         <div style="font-size:34px;font-weight:900;letter-spacing:.3em;text-align:center;color:var(--gold)" id="hostCode">----</div>
         <div class="mutx" id="hostStatus" style="text-align:center"></div>
       </div>
-      <div class="mutx" style="margin-top:12px">相手が建てた部屋に入る場合はこちら（あなたが後攻）。</div>
+      <div class="mutx" style="margin-top:12px">相手が建てた部屋に入る場合はこちら。</div>
       <div class="row" style="margin-top:6px">
         <input type="text" id="joinCode" maxlength="4" placeholder="CODE"
-          style="text-align:center;font-size:22px;letter-spacing:.3em;text-transform:uppercase"
-          oninput="this.value=this.value.toUpperCase()">
+          autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false"
+          style="text-align:center;font-size:22px;letter-spacing:.3em;text-transform:uppercase">
         <button class="btn sm" onclick="joinRoom()">入る</button>
       </div>
       <div class="mutx" id="joinStatus" style="margin-top:6px"></div>
@@ -3204,7 +3207,8 @@ function openDeckList(m){ LISTM=(m==='cpu')?'cpu':'my';
   $('deckTitle').textContent=cpuMode()?'CPUデッキ一覧':'デッキ一覧';
   $('deckHint').textContent=cpuMode()?'タップでCPUが使うデッキに設定（未選択ならランダム選出）':'タップで使用デッキに設定';
   renderDeckList(); show('scrDecks'); }
-function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on');
+  if(id==='scrBattle'){ fitBoard(); requestAnimationFrame(fitBoard); } }
 
 //====== home ======
 function renderHome(){
@@ -3667,6 +3671,18 @@ function cellRect(i){
   const a=el.getBoundingClientRect(), b=w.getBoundingClientRect();
   return {x:a.left-b.left+a.width/2, y:a.top-b.top+a.height/2, w:a.width};
 }
+// 盤面の大きさ：枠の実寸を測って、四行＋隙間が必ず収まる幅を px で入れる
+function fitBoard(){
+  const w=$('bwrap'), b=$('board'); if(!w||!b) return;
+  const r=w.getBoundingClientRect(); if(!r.width||!r.height) return;
+  const byH=(r.height-4-15)*0.75;               // 4px=上下の余白、15px=行間 5px×3
+  const px=Math.max(120,Math.floor(Math.min(r.width,byH)));
+  if(b.style.width!==px+'px'){ b.style.width=px+'px'; svgSize(); }
+}
+window.addEventListener('resize',fitBoard);
+window.addEventListener('orientationchange',()=>setTimeout(fitBoard,150));
+try{ window.visualViewport&&window.visualViewport.addEventListener('resize',fitBoard); }catch(e){}
+try{ new ResizeObserver(()=>fitBoard()).observe($('bwrap')); }catch(e){}
 function svgSize(){ const w=$('bwrap').getBoundingClientRect(); const sv=$('beams');
   sv.setAttribute('viewBox',`0 0 ${w.width} ${w.height}`); sv.style.width=w.width+'px'; sv.style.height=w.height+'px'; }
 function clearBeams(){ $('beams').innerHTML=''; }
@@ -3781,13 +3797,20 @@ function dragMove(e){
 //---- 相手にドラッグを見せる（直接繋ぐときだけ。原作と同じで札は表のまま見える）----
 let DRGT=0, OGH=null;
 function dcOpen(){ return MODE==='p2p'&&DC&&DC.readyState==='open'; }
+function liveOn(){ return MODE==='online'&&!!ROOM&&hasStore2; }
+function liveSend(o){ if(!liveOn()) return;                     // 待たない（遅延を増やさないため）
+  try{ db.collection(FLLIVE).doc(RKEY(ROOM)).set({[ME]:JSON.stringify(o)},{merge:true}); }catch(e){} }
 function sendDrag(x,y,d,force){
-  if(!dcOpen()||!d.moved) return;
-  const t=Date.now(); if(!force&&t-DRGT<70) return; DRGT=t;
+  if(!d.moved||(!dcOpen()&&!liveOn())) return;
+  const t=Date.now(), iv=dcOpen()?70:150; if(!force&&t-DRGT<iv) return; DRGT=t;
   const w=$('bwrap').getBoundingClientRect(); if(!w.width) return;
-  try{ DC.send(b64e({t:'drag',k:d.k,c:d.cell,x:(x-w.left)/w.width,y:(y-w.top)/w.height})); }catch(e){}
+  const o={t:'drag',k:d.k,c:d.cell,x:(x-w.left)/w.width,y:(y-w.top)/w.height};
+  if(dcOpen()){ try{ DC.send(b64e(o)); }catch(e){} } else liveSend(o);
 }
-function sendDragEnd(){ if(!dcOpen()) return; try{ DC.send(b64e({t:'drag',end:1})); }catch(e){} }
+function sendDragEnd(){
+  if(dcOpen()){ try{ DC.send(b64e({t:'drag',end:1})); }catch(e){} }
+  else liveSend({t:'drag',end:1});
+}
 function showOppDrag(p){
   if(p.end||!G){ clearOppDrag(); return; }
   const w=$('bwrap').getBoundingClientRect(); if(!w.width) return;
@@ -4471,7 +4494,8 @@ function applyPacket(str){
 
 //====== オンライン対戦（ランダムマッチ／ルームマッチ）======
 let MODE='cpu', ROOM=null, POLL=null, SEQ=0, OPPNAME_=null;
-let WROOM=null, RSCAN=null, UNSUB=null;          // WROOM=自分が建てて待機中の部屋
+let WROOM=null, RSCAN=null, UNSUB=null, ULIVE=null, LIVELAST='';
+const FLLIVE='fllive';            // ドラッグの位置だけを流す軽いコレクション          // WROOM=自分が建てて待機中の部屋
 function OPPNAME(){ return isOnlineMode()?'対戦相手':'CPU'; }
 const FLCOL='flrooms';                            // Firestore の部屋コレクション
 const hasStore2=(typeof firebase!=='undefined'&&!!window.db);
@@ -4518,13 +4542,25 @@ function openOnline(){
 }
 function stopScan(){ if(RSCAN){ clearInterval(RSCAN); RSCAN=null; } }
 function stopPoll(){ if(UNSUB){ try{ UNSUB(); }catch(e){} UNSUB=null; }
+  if(ULIVE){ try{ ULIVE(); }catch(e){} ULIVE=null; } LIVELAST='';
   if(POLL){ clearInterval(POLL); POLL=null; } }
-function leaveOnline(){ const w=WROOM; WROOM=null;
+function leaveOnline(){ const w=WROOM, rc=ROOM; WROOM=null;
   stopPoll(); stopScan();
   if(w) rdel(w);                                  // 待機のまま抜けた部屋は消す
+  if(rc&&hasStore2){ try{ db.collection(FLLIVE).doc(RKEY(rc)).delete(); }catch(e){} }
   ROOM=null; SEQ=0; MODE='cpu'; ME='P'; OPP='C';
   RM={me:false,opp:false}; MID=null; FINDONE=false; OPPGONE=false;
+  resetMatchUI();
   const hb=$('hostBox'); if(hb) hb.style.display='none'; randBtns(false); }
+// 前の試合の結果画面や初期手札の状態が残ると、次の試合に入れなくなる
+function resetMatchUI(){
+  try{ stopT(); stopOTimer(); hideSel(); clearOppDrag(); }catch(e){}
+  G=null; LP=0; OPTM=null; PEND=null; SC=null; BUSY=false; VIEW=null; prevView=null;
+  const ob=$('openingBox'); if(ob){ ob.style.display='none'; delete ob.dataset.on; }
+  ['resOv','choiceOv','pasteOv','srOv','fbOv'].forEach(id=>{ const e=$(id); if(e) e.classList.remove('on'); });
+  const br=$('btnRematch'); if(br) br.disabled=false;
+  const rb=$('rematchBox'); if(rb) rb.style.display='none';
+}
 
 //--- 部屋を建てる／入る ---
 function onlineReady(msg){
@@ -4621,6 +4657,11 @@ function startPoll(){ stopPoll();
         if(MODE!=='online'||ROOM!==code) return;
         const d=s.exists?(s.data()||{}):null;
         pollOnce(d&&d.p?JSON.parse(d.p):null); },()=>{}); }catch(e){}
+  try{ ULIVE=db.collection(FLLIVE).doc(RKEY(code)).onSnapshot(s=>{
+        if(MODE!=='online'||ROOM!==code) return;
+        const raw=(s.exists?(s.data()||{}):{})[OPP]||'';
+        if(raw===LIVELAST) return; LIVELAST=raw; if(!raw) return;
+        try{ showOppDrag(JSON.parse(raw)); }catch(e){} },()=>{}); }catch(e){}
   POLL=setInterval(()=>pollOnce(),4000);
   pollOnce();
 }
