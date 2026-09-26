@@ -267,11 +267,11 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 .ldm{position:absolute;left:-7px;top:-7px;width:calc(100% + 14px);height:calc(100% + 14px);pointer-events:none;z-index:0}
 .ldm path{fill:none;stroke:rgba(255,85,140,.68);stroke-width:6;stroke-linecap:round}
 .ldm polygon{fill:rgba(255,85,140,.68)}
-.edgridwrap{display:flex;align-items:center;gap:4px;flex:1;min-height:0}
+.edgridwrap{display:flex;align-items:center;gap:4px;flex:1;min-height:0;container-type:size}
 .edpg{flex:none;width:26px;height:70px;border-radius:9px;border:1px solid var(--line);background:#141c2a;color:var(--text);font-size:15px;cursor:pointer}
 .edgrid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,auto);gap:5px;align-content:start}
 .ecard{position:relative;text-align:center;padding:4px 2px 3px;border-radius:10px;background:#0E141F;border:1px solid #243044;touch-action:none;cursor:pointer;overflow:hidden}
-.ecard .chip{width:46px;margin:0 auto;--gsz:12px;--asz:8.5px}
+.ecard .chip{width:clamp(30px,calc((100cqh - 80px)/3),46px);margin:0 auto;--gsz:12px;--asz:8.5px}
 .ecard .n{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .ecard .ert{position:absolute;left:3px;top:3px;font-size:8px;padding:1px 3px;z-index:1}
 .ecard .efl{position:absolute;right:3px;top:3px;font-size:8px;color:#8FE9BB;font-weight:800;z-index:1}
@@ -300,7 +300,7 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 .bwrap{position:relative}
 /* 盤面を広げる：盤面の枠が残りの高さを全部使い、その中で盤面を最大に。下の行（HPバー・手札・退出）は画面下へ */
 #scrBattle .bwrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;container-type:size}
-#scrBattle .board{width:min(100cqw,calc(75cqh - 2px))}
+#scrBattle .board{width:min(100cqw,calc(75cqh - 16px))}   /* マスの隙間15px＋余白分を引く（引かないと盤面が上下にはみ出す） */
 #beams{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:visible}
 #guide{position:absolute;inset:0;pointer-events:none;z-index:7;overflow:visible}
 .cell.drop{border-color:#FFD166!important;box-shadow:0 0 0 2px #FFD166 inset}
@@ -635,7 +635,7 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
   <div class="mutx" id="homeCpu" style="margin-bottom:11px"></div>
   <div class="stack">
     <button class="btn pri" id="btnBattle" onclick="startBattle()">バトル（CPU戦）</button>
-    <button class="btn sec" id="btnOnline" onclick="openExt()">オンライン対戦</button>
+    <button class="btn sec" id="btnOnline" onclick="openOnline()">オンライン対戦</button>
     <button class="btn" onclick="openDeckList('my')">デッキ編成</button>
     <button class="btn" id="btnCpuDecks" onclick="openDeckList('cpu')">CPUデッキ編成</button>
     <button class="btn" id="btnTagPairs" style="display:none" onclick="openTagList()">タッグ編成</button>
@@ -674,66 +674,38 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
   <div class="row"><button class="btn sm" onclick="leaveOnline();show('scrHome')">← ホーム</button><h1 style="margin:0">オンライン対戦</h1></div>
   <div class="scroll" style="flex:1;padding-top:10px">
     <div class="panel" id="onDeck" style="margin-bottom:12px"></div>
+
     <div class="panel" style="margin-bottom:12px">
-      <h3 style="margin:0 0 6px;font-size:14px">ルームを作る</h3>
-      <div class="mutx">4文字のコードが出ます。相手に伝えて参加してもらってください（あなたが先攻）。</div>
-      <button class="btn sec" style="margin-top:8px" onclick="createRoom()">ルームを作成</button>
+      <h3 style="margin:0 0 6px;font-size:14px">ランダムマッチ</h3>
+      <div class="mutx">同じページにログインしている相手を自動で探します。先攻・後攻はランダムです。</div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <button class="btn sec sm" style="flex:1" id="btnRand" onclick="randomMatch()">相手を探す</button>
+        <button class="btn sm" style="flex:1;display:none" id="btnRandCancel" onclick="cancelRandom()">やめる</button>
+      </div>
+      <div class="mutx" id="randStatus" style="margin-top:6px"></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:12px">
+      <h3 style="margin:0 0 6px;font-size:14px">ルームマッチ</h3>
+      <div class="mutx">部屋を建てると４文字のコードが出ます。相手に伝えて入ってもらってください（建てた側が先攻）。</div>
+      <button class="btn sec" style="margin-top:8px" onclick="createRoom()">部屋を建てる</button>
       <div id="hostBox" style="display:none;margin-top:10px">
         <div style="font-size:34px;font-weight:900;letter-spacing:.3em;text-align:center;color:var(--gold)" id="hostCode">----</div>
-        <div class="mutx" id="hostStatus" style="text-align:center">相手の参加を待っています…</div>
+        <div class="mutx" id="hostStatus" style="text-align:center"></div>
       </div>
-    </div>
-    <div class="panel">
-      <h3 style="margin:0 0 6px;font-size:14px">ルームに参加</h3>
-      <div class="mutx">相手から聞いた4文字コードを入力してください（あなたが後攻）。</div>
-      <div class="row" style="margin-top:8px">
+      <div class="mutx" style="margin-top:12px">相手が建てた部屋に入る場合はこちら（あなたが後攻）。</div>
+      <div class="row" style="margin-top:6px">
         <input type="text" id="joinCode" maxlength="4" placeholder="CODE"
           style="text-align:center;font-size:22px;letter-spacing:.3em;text-transform:uppercase"
           oninput="this.value=this.value.toUpperCase()">
-        <button class="btn sm" onclick="joinRoom()">参加</button>
+        <button class="btn sm" onclick="joinRoom()">入る</button>
       </div>
       <div class="mutx" id="joinStatus" style="margin-top:6px"></div>
     </div>
-    <div class="mutx" style="margin-top:12px;line-height:1.7">
-      ※ 対戦データはこのアプリの共有ストレージに保存され、同じコードを知る人がアクセスできます。<br>
-      ※ リアルタイム通信ではなく数秒ごとの同期です。持ち時間は20秒のままなので、通信待ちに注意してください。
-    </div>
-  </div>
-</section>
 
-<section id="scrExt" class="screen">
-  <div class="row"><button class="btn sm" onclick="leaveExt();show('scrHome')">← ホーム</button><h1 style="margin:0">オンライン対戦</h1></div>
-  <div class="scroll" style="flex:1;padding-top:10px">
-    <div class="panel" id="extDeck" style="margin-bottom:12px"></div>
-
-    <div class="panel" style="margin-bottom:12px">
-      <h3 style="margin:0 0 4px;font-size:14px">① 直接つなぐ（推奨）</h3>
-      <div class="mutx">最初に接続コードを2往復するだけ。以降は自動同期されます。</div>
-      <div class="row" style="margin-top:8px;gap:6px">
-        <button class="btn sec sm" style="flex:1" onclick="p2pHost()">ホストになる</button>
-        <button class="btn sm" style="flex:1" onclick="p2pGuestStart()">参加する</button>
-      </div>
-      <div id="p2pBox" style="display:none;margin-top:10px">
-        <div class="mutx" id="p2pLabel"></div>
-        <textarea id="p2pOut" readonly rows="3" class="codebox"></textarea>
-        <div class="row" style="gap:6px;margin-top:5px">
-          <button class="btn sm" style="flex:1" onclick="copyBox('p2pOut')">コードをコピー</button>
-        </div>
-        <div class="mutx" style="margin-top:9px" id="p2pInLabel">相手のコードを貼り付け</div>
-        <textarea id="p2pIn" rows="3" class="codebox" placeholder="ここに貼り付け"></textarea>
-        <button class="btn sm" style="width:100%;margin-top:5px" onclick="p2pAccept()">読み込む</button>
-      </div>
-      <div class="mutx" id="p2pStatus" style="margin-top:8px"></div>
-    </div>
-
-    <div class="panel">
-      <h3 style="margin:0 0 4px;font-size:14px">② コードを送り合う</h3>
-      <div class="mutx">つながらない環境でも確実。手番ごとにコードを交換します。</div>
-      <div class="row" style="margin-top:8px;gap:6px">
-        <button class="btn sec sm" style="flex:1" onclick="pasteHost()">自分が先攻で始める</button>
-        <button class="btn sm" style="flex:1" onclick="pasteGuest()">相手のコードから参加</button>
-      </div>
-      <div class="mutx" id="pasteStatus" style="margin-top:8px"></div>
+    <div class="mutx" style="line-height:1.7">
+      ※ 対戦データはログイン中のアカウントでサーバーに保存され、対戦相手と共有されます。<br>
+      ※ 通信の待ち時間があるため、持ち時間（20秒）に注意してください。
     </div>
   </div>
 </section>
@@ -3533,8 +3505,9 @@ function startBattle(){
 function begin(){ E.startTurn(G); render(); if(G.win){fin();return;} G.act==='C'?cpuTurn():pPhase(); }
 function quitBattle(){
   try{ if(MODE==='p2p'&&DC&&DC.readyState==='open') DC.send(b64e({t:'bye'})); }catch(e){}
-  if(MODE==='online'&&ROOM){ (async()=>{ const q=await rget(RKEY(ROOM)); if(q){ if(ME==='P')q.leftP=true; else q.leftC=true;
-      q.seq=Math.max((q.seq||1),SEQ)+1; await rset(RKEY(ROOM),q); } })(); }
+  if(MODE==='online'&&ROOM){ const rc=ROOM, side=ME, sq=SEQ;
+    (async()=>{ const q=await rget(rc); if(q){ if(side==='P')q.leftP=true; else q.leftC=true;
+      q.seq=Math.max((q.seq||1),sq)+1; await rset(rc,q); } })(); }
   stopT(); stopOTimer(); OPTM=null; PEND=null; hideSel(); leaveOnline(); leaveExt(); MODE='cpu'; ME='P'; OPP='C';
   $('pasteOv').classList.remove('on'); G=null; show('scrHome'); renderHome(); }
 
@@ -4496,79 +4469,175 @@ function applyPacket(str){
   return G;
 }
 
-//====== オンライン対戦 ======
+//====== オンライン対戦（ランダムマッチ／ルームマッチ）======
 let MODE='cpu', ROOM=null, POLL=null, SEQ=0, OPPNAME_=null;
+let WROOM=null, RSCAN=null, UNSUB=null;          // WROOM=自分が建てて待機中の部屋
 function OPPNAME(){ return isOnlineMode()?'対戦相手':'CPU'; }
-const hasStore2=typeof window.storage?.get==='function';
-const RKEY=c=>'flx_room_'+c;
+const FLCOL='flrooms';                            // Firestore の部屋コレクション
+const hasStore2=(typeof firebase!=='undefined'&&!!window.db);
+const myUid=()=>(window.currentUser&&window.currentUser.uid)||'';
+const RKEY=c=>String(c||'');
 function genCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)]; return s; }
 function serialize(g){ const o={}; for(const k in g) if(k!=='rng') o[k]=g[k]; return o; }
 function hydrate(o){ o.rng=Math.random; return o; }
-async function rget(k){ try{ const r=await window.storage.get(k,true); return r&&r.value?JSON.parse(r.value):null; }catch(e){ return null; } }
-async function rset(k,v){ try{ await window.storage.set(k,JSON.stringify(v),true); return true; }catch(e){ return false; } }
+// 1部屋=1ドキュメント。中身は JSON 文字列 p にまとめて入れる（入れ子の配列を避けるため）
+const roomRef=c=>db.collection(FLCOL).doc(RKEY(c));
+const roomFields=p=>({p:JSON.stringify(p),seq:p.seq||0,phase:p.phase||'',kind:p.kind||'room',host:p.host||'',ts:Date.now()});
+async function rget(k){ try{ const s=await roomRef(k).get(); if(!s.exists) return null;
+  const d=s.data()||{}; return d.p?JSON.parse(d.p):null; }catch(e){ return null; } }
+async function rset(k,v){ try{ await roomRef(k).set(roomFields(v)); return true; }catch(e){ return false; } }
+async function rdel(k){ try{ await roomRef(k).delete(); }catch(e){} }
+
+function msgTo(id,t,bad){ const e=$(id); if(!e) return; e.textContent=t;
+  e.style.color=bad?'var(--atkup)':'var(--mut)'; e.style.fontWeight=bad?'700':'400'; }
+function hostMsg(t,bad){ msgTo('hostStatus',t,bad); }
+function joinMsg(t,bad){ msgTo('joinStatus',t,bad); }
+function randMsg(t,bad){ msgTo('randStatus',t,bad); }
+function randBtns(on){ const a=$('btnRand'), b=$('btnRandCancel');
+  if(a) a.style.display=on?'none':''; if(b) b.style.display=on?'':'none'; }
 
 function openOnline(){
   leaveOnline(); G=null;
-  const d=selDeck(), el=$('onDeck');
-  if(!d||!RO[d.leader]){ el.innerHTML='<div class="mutx" style="color:var(--atkup);font-weight:700">デッキが未選択です。<br>ホームに戻り「デッキ編成」でデッキを選んでください。</div>'; }
+  const el=$('onDeck');
+  if(TAGM){ const tp=pairDecks(selPair());
+    el.innerHTML=tp?`<div class="mutx">使用する組み合わせ（タッグ）</div><div style="font-weight:800">${esc(tp[0].name)}<span class="mutx"> / 先手用</span></div><div style="font-weight:800">${esc(tp[1].name)}<span class="mutx"> / 後手用</span></div>`
+      :'<div class="mutx" style="color:var(--atkup);font-weight:700">組み合わせが未設定です。ホーム→タッグ編成で作成してください。</div>'; }
   else{
-    const errs=E.validateDeck([d.leader,...d.members],d.leader);
-    el.innerHTML=`<div class="mutx">使用デッキ</div><div style="font-weight:800;margin-top:2px">${esc(d.name)}`+
-      ` <span class="bbadge ${d.brand||'ggg'}">${esc(E.BRANDS[d.brand||'ggg'])}</span></div>`+
-      `<div class="mutx" style="font-size:11px">リーダー: ${esc(RO[d.leader].n)}</div>`+
-      (errs.length?`<div style="color:var(--atkup);font-weight:700;font-size:11.5px;margin-top:4px">⚠ ${esc(errs[0])}</div>`:'');
+    const d=selDeck();
+    if(!d||!RO[d.leader]) el.innerHTML='<div class="mutx" style="color:var(--atkup);font-weight:700">デッキが未選択です。<br>ホームに戻り「デッキ編成」でデッキを選んでください。</div>';
+    else{ const errs=E.validateDeck([d.leader,...d.members],d.leader);
+      el.innerHTML=`<div class="mutx">使用デッキ</div><div style="font-weight:800;margin-top:2px">${esc(d.name)}`+
+        ` <span class="bbadge ${d.brand||'ggg'}">${esc(E.BRANDS[d.brand||'ggg'])}</span></div>`+
+        `<div class="mutx" style="font-size:11px">リーダー: ${esc(RO[d.leader].n)}</div>`+
+        (errs.length?`<div style="color:var(--atkup);font-weight:700;font-size:11.5px;margin-top:4px">⚠ ${esc(errs[0])}</div>`:''); }
   }
-  $('hostBox').style.display='none'; $('joinStatus').textContent=''; $('joinCode').value='';
+  const hb=$('hostBox'); if(hb) hb.style.display='none';
+  const jc=$('joinCode'); if(jc) jc.value='';
+  hostMsg(''); joinMsg(''); randMsg(''); randBtns(false);
   show('scrOnline');
 }
-function leaveOnline(){ if(POLL){clearInterval(POLL);POLL=null;} ROOM=null; SEQ=0; MODE='cpu'; ME='P'; OPP='C';
-  RM={me:false,opp:false}; MID=null; FINDONE=false; $('hostBox').style.display='none'; }
+function stopScan(){ if(RSCAN){ clearInterval(RSCAN); RSCAN=null; } }
+function stopPoll(){ if(UNSUB){ try{ UNSUB(); }catch(e){} UNSUB=null; }
+  if(POLL){ clearInterval(POLL); POLL=null; } }
+function leaveOnline(){ const w=WROOM; WROOM=null;
+  stopPoll(); stopScan();
+  if(w) rdel(w);                                  // 待機のまま抜けた部屋は消す
+  ROOM=null; SEQ=0; MODE='cpu'; ME='P'; OPP='C';
+  RM={me:false,opp:false}; MID=null; FINDONE=false; OPPGONE=false;
+  const hb=$('hostBox'); if(hb) hb.style.display='none'; randBtns(false); }
 
-function hostMsg(t,bad){ const e=$('hostStatus'); e.textContent=t;
-  e.style.color=bad?'var(--atkup)':'var(--mut)'; e.style.fontWeight=bad?'700':'400'; }
+//--- 部屋を建てる／入る ---
+function onlineReady(msg){
+  if(!hasStore2){ msg('この環境ではオンライン対戦を利用できません',1); return false; }
+  if(!myUid()){ msg('ログインしていないため利用できません',1); return false; }
+  return true;
+}
+async function makeRoom(d,kind,msg){
+  let code='';
+  for(let i=0;i<6;i++){ const c=genCode(); if(!await rget(c)){ code=c; break; } }
+  if(!code){ msg('部屋の作成に失敗しました',1); return null; }
+  const p={seq:1,phase:'wait',kind:kind,host:myUid(),hostDeck:d,guestDeck:null,pickP:null,pickC:null,g:null};
+  if(!await rset(code,p)){ msg('部屋の作成に失敗しました（通信エラー）',1); return null; }
+  MODE='online'; ME='P'; OPP='C'; ROOM=code; SEQ=1; OPPGONE=false; WROOM=code;
+  startPoll(); return code;
+}
+async function joinCode(code,d,msg){
+  let res='err';
+  try{
+    res=await db.runTransaction(async tx=>{
+      const ref=roomRef(code), s=await tx.get(ref);
+      if(!s.exists) return 'none';
+      const p=JSON.parse((s.data()||{}).p||'null');
+      if(!p) return 'none';
+      if(p.guestDeck||p.phase!=='wait') return 'full';
+      if(isTagDeck(p.hostDeck)!==isTagDeck(d)) return 'mix';
+      p.guestDeck=d; p.guest=myUid(); p.phase='opening'; p.seq=(p.seq||1)+1;
+      tx.set(ref,roomFields(p)); SEQ=p.seq; return 'ok';
+    });
+  }catch(e){ res='err'; }
+  if(res!=='ok'){ msg(res==='none'?'部屋が見つかりません':res==='full'?'その部屋は満室です':res==='mix'?TAGMIX:'参加に失敗しました',1); return false; }
+  stopScan(); MODE='online'; ME='C'; OPP='P'; ROOM=code; OPPGONE=false;
+  msg('参加しました。準備中…'); startPoll(); return true;
+}
 async function createRoom(){
-  $('hostBox').style.display='block';
-  $('hostCode').textContent='----';
-  hostMsg('準備中…');
-  const d=selDeck();
-  if(!d){ hostMsg('デッキが未選択です。ホーム→デッキ編成でデッキを選んでください',1); return; }
-  const errs=E.validateDeck([d.leader,...d.members],d.leader);
-  if(errs.length){ hostMsg('デッキが不正です: '+errs[0],1); return; }
-  if(!hasStore2){ hostMsg('この環境ではオンライン対戦を利用できません（共有ストレージが無効）',1); return; }
-  const code=genCode();
+  leaveOnline();
+  if(!onlineReady(hostMsg)) return;
+  const d=deckOK(); if(!d){ hostMsg('デッキが未選択か、編成が不正です',1); return; }
+  $('hostBox').style.display='block'; $('hostCode').textContent='----'; hostMsg('準備中…');
+  const code=await makeRoom(d,'room',hostMsg);
+  if(!code){ $('hostBox').style.display='none'; return; }
   $('hostCode').textContent=code;
-  let ok=false, emsg='';
-  try{ ok=await rset(RKEY(code),{seq:1,phase:'wait',hostDeck:{leader:d.leader,members:d.members},
-        guestDeck:null,pickP:null,pickC:null,g:null}); }
-  catch(e){ emsg=e&&e.message||String(e); }
-  if(!ok){ $('hostCode').textContent='----'; hostMsg('ルーム作成に失敗しました'+(emsg?'（'+emsg+'）':''),1); return; }
-  MODE='online'; ME='P'; OPP='C'; ROOM=code; SEQ=1;
-  hostMsg('コードを相手に伝えてください。参加を待っています…');
-  startPoll();
+  hostMsg('このコードを相手に伝えてください。参加を待っています…');
 }
 async function joinRoom(){
-  const js=$('joinStatus'); js.style.color='var(--atkup)'; js.style.fontWeight='700';
-  const d=selDeck();
-  if(!d){ js.textContent='デッキが未選択です。ホーム→デッキ編成でデッキを選んでください'; return; }
-  const de=E.validateDeck([d.leader,...d.members],d.leader);
-  if(de.length){ js.textContent='デッキが不正です: '+de[0]; return; }
-  if(!hasStore2){ $('joinStatus').textContent='この環境ではオンライン対戦を利用できません'; return; }
+  if(!onlineReady(joinMsg)) return;
+  const d=deckOK(); if(!d){ joinMsg('デッキが未選択か、編成が不正です',1); return; }
   const code=($('joinCode').value||'').trim().toUpperCase();
-  if(code.length!==4){ $('joinStatus').textContent='4文字のコードを入力してください'; return; }
-  const p=await rget(RKEY(code));
-  if(!p){ $('joinStatus').textContent='ルームが見つかりません'; return; }
-  if(p.guestDeck){ $('joinStatus').textContent='このルームは満室です'; return; }
-  p.guestDeck={leader:d.leader,members:d.members}; p.phase='opening'; p.seq=(p.seq||1)+1;
-  if(!await rset(RKEY(code),p)){ $('joinStatus').textContent='参加に失敗しました'; return; }
-  MODE='online'; ME='C'; OPP='P'; ROOM=code; SEQ=p.seq;
-  js.style.color='var(--mut)'; js.style.fontWeight='400'; js.textContent='参加しました。準備中…';
-  startPoll();
+  if(code.length!==4){ joinMsg('4文字のコードを入力してください',1); return; }
+  leaveOnline(); joinMsg('参加しています…');
+  await joinCode(code,d,joinMsg);
 }
-function startPoll(){ if(POLL) clearInterval(POLL); POLL=setInterval(pollOnce,2200); pollOnce(); }
 
-async function pollOnce(){
+//--- ランダムマッチ ---
+async function listWaiting(){
+  try{ const s=await db.collection(FLCOL).where('phase','==','wait').limit(30).get();
+    const now=Date.now(), out=[];
+    s.forEach(doc=>{ const x=doc.data()||{};
+      out.push({code:doc.id,kind:x.kind||'room',host:x.host||'',age:now-(x.ts||0)}); });
+    return out;
+  }catch(e){ return null; }
+}
+async function randomMatch(){
+  leaveOnline();
+  if(!onlineReady(randMsg)) return;
+  const d=deckOK(); if(!d){ randMsg('デッキが未選択か、編成が不正です',1); return; }
+  randBtns(true); randMsg('対戦相手を探しています…');
+  const list=await listWaiting();
+  if(list===null){ randBtns(false); randMsg('サーバーに接続できませんでした',1); return; }
+  const cand=list.filter(r=>r.kind==='random'&&r.host&&r.host!==myUid()&&r.age<120000)
+                 .sort(()=>Math.random()-0.5);
+  for(const r of cand){ if(await joinCode(r.code,d,()=>{})) return; }
+  const code=await makeRoom(d,'random',randMsg);
+  if(!code){ randBtns(false); return; }
+  randMsg('対戦相手を待っています…');
+  RSCAN=setInterval(rescan,3500);
+}
+// 同時に2人とも待機になったときの救済（uid が小さい側の部屋に合流する）
+async function rescan(){
+  if(MODE!=='online'||!WROOM) return;
+  const list=await listWaiting(); if(!list) return;
+  const me=myUid(), mine=WROOM;
+  const cand=list.filter(r=>r.kind==='random'&&r.host&&r.host<me&&r.code!==mine&&r.age<120000);
+  if(!cand.length) return;
+  const d=deckOK(); if(!d) return;
+  if(await joinCode(cand[0].code,d,()=>{})){ WROOM=null; rdel(mine); }
+}
+function cancelRandom(){ leaveOnline(); randBtns(false); randMsg('探すのをやめました'); }
+
+//--- 同期（onSnapshot で受け取り、取りこぼし保険に定期も回す）---
+function startPoll(){ stopPoll();
+  const code=ROOM;
+  try{ UNSUB=roomRef(code).onSnapshot(s=>{
+        if(MODE!=='online'||ROOM!==code) return;
+        const d=s.exists?(s.data()||{}):null;
+        pollOnce(d&&d.p?JSON.parse(d.p):null); },()=>{}); }catch(e){}
+  POLL=setInterval(()=>pollOnce(),4000);
+  pollOnce();
+}
+let PBUSY=false, PPEND=false;
+async function pollOnce(pre){
   if(MODE!=='online'||!ROOM) return;
-  const p=await rget(RKEY(ROOM)); if(!p) return;
+  if(PBUSY){ PPEND=true; return; }
+  PBUSY=true;
+  try{ await pollRun(pre); }catch(e){}
+  PBUSY=false;
+  if(PPEND){ PPEND=false; pollOnce(); }
+}
+
+async function pollRun(pre){
+  if(MODE!=='online'||!ROOM) return;
+  const p=pre||await rget(RKEY(ROOM)); if(!p) return;
+  if(p.phase&&p.phase!=='wait'){ WROOM=null; stopScan(); }
 
   // 新しい対戦が始まっていたら前の試合を破棄
   if(p.mid&&MID&&p.mid!==MID){ MID=p.mid; G=null; LP=0; SEQ=0; FINDONE=false;
@@ -4650,7 +4719,7 @@ function waitOpp(){ stopT(); info('相手の手番…'); }
 
 //====== Claude外対戦（P2P / コード交換）======
 let PC=null, DC=null, EXTROLE=null;
-function extMsg(id,t,bad){ const e=$(id); e.textContent=t;
+function extMsg(id,t,bad){ const e=$(id); if(!e) return; e.textContent=t;
   e.style.color=bad?'var(--atkup)':'var(--mut)'; e.style.fontWeight=bad?'700':'400'; }
 function copyBox(id){ const t=$(id);
   try{ navigator.clipboard.writeText(t.value); toast('コピーしました'); }
@@ -4674,8 +4743,8 @@ function leaveExt(){ try{ if(DC)DC.close(); if(PC)PC.close(); }catch(e){}
   pasteMidLayout(false);
   PC=null; DC=null; EXTROLE=null; EXTOPT=null; EXTPICK={}; RXP=null; PENDOPEN=null; OPPGONE=false;
   MYDECK=null; OPPDECK=null; MYTPL=null; SYNCBASE=0; RM={me:false,opp:false}; MID=null; FINDONE=false;
-  $('p2pOut').value=''; $('p2pIn').value=''; $('pasteOut').value=''; $('pasteIn').value='';
-  $('pasteOv').classList.remove('on'); }
+  ['p2pOut','p2pIn','pasteOut','pasteIn'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+  const po=$('pasteOv'); if(po) po.classList.remove('on'); }
 function deckOne(d){ return (d&&RO[d.leader]&&!E.validateDeck([d.leader,...d.members],d.leader).length)?{leader:d.leader,members:d.members}:null; }
 function deckOK(){
   if(TAGM){ const tp=pairDecks(selPair()); if(!tp) return null;            // タッグ：［先手用,後手用］を2つとも送る
