@@ -116,9 +116,9 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 .lname{font-size:11px;font-weight:800;width:52px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .turnpill{font-size:9.5px;font-weight:900;padding:1px 6px;border-radius:8px;border:1px solid var(--line);color:var(--mut);flex:none}
 .turnpill.act{border-color:var(--gold);color:var(--gold);background:rgba(255,200,87,.1)}
-#infoBar{padding:6px 9px;min-height:50px;margin:4px 0 2px;border-radius:11px}
+#infoBar{padding:6px 9px;height:76px;margin:4px 0 2px;border-radius:11px}   /* 高さ固定：伸び縮みすると盤面の大きさが変わってしまう */
 #infoBar{display:flex;gap:9px;align-items:center;border-color:#3A4860}
-#infoBar .txt{flex:1;min-width:0}
+#infoBar .txt{flex:1;min-width:0;max-height:100%;overflow-y:auto}
 #infoBar .l1{font-size:12.5px;font-weight:800;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
 #infoBar .l2{font-size:10.5px;color:var(--mut);line-height:1.45;margin-top:2px}
 .artmap{width:40px;height:40px;flex:none;position:relative;border-radius:8px;background:#0A0F18;border:1px solid var(--line)}
@@ -776,7 +776,7 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
     <span class="turnpill" id="pPill">先攻</span>
     <div class="hpbar" id="pBar"><div class="hpfill" id="pHp" style="background:#9DDB2E"></div></div>
     <b id="pHpN" style="font-size:13px;min-width:36px;text-align:right"></b><span class="cube" id="pCube"></span></div>
-  <div class="msg" id="bMsg"></div>
+  <div class="msg" id="bMsg" style="height:14px;overflow:hidden"></div>
   
   <div id="handBox">
     <div class="hand" id="hand"></div>
