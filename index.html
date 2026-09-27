@@ -2274,10 +2274,11 @@ function runInner(g,src,ops,ctx){
             rep(h1,k1,k2); rep(h2,k2,k1); ev(g,'swapHands',{owner:o1}); } }
         break; }
       case 'shuffleHand': { const o=src.owner, d2=g.decks[o], h=g.hands[o];
-        if(h&&d2.tagSub){ const nh={};   // タッグ：先手用・後手用それぞれの山札に戻して2枚ずつ引き直す
-          [['sente',0],['gote',1]].forEach(([z,s])=>{ const sd=d2.tagSub[s], pool=sd.pool.concat(h[z]); const nw=pickN(g,pool,2); sd.pool=pool.filter(k=>!nw.includes(k)); nh[z]=nw; });
+        // 手札もデッキに戻してデッキ全体を混ぜ直し、そこから引き直す（山札の残りだけで引くと同じ手札が戻ってきてしまう）
+        if(h&&d2.tagSub){ const nh={};   // タッグ：先手用・後手用は混ぜず、それぞれのデッキから2枚ずつ
+          [['sente',0],['gote',1]].forEach(([z,s])=>{ const sd=d2.tagSub[s], pool=sd.all.slice(); const nw=pickN(g,pool,2); sd.pool=pool.filter(k=>!nw.includes(k)); nh[z]=nw; });
           d2.pool=d2.tagSub[0].pool.concat(d2.tagSub[1].pool); g.hands[o]=nh; delete d2.handSet; ev(g,'shuffleHand',{owner:o}); }
-        else if(h){ const cur=[...h.sente,...h.gote]; const pool=d2.pool.concat(cur);
+        else if(h){ const pool=d2.all.slice();
           const nw=pickN(g,pool,4); d2.pool=pool.filter(k=>!nw.includes(k));
           g.hands[o]={sente:[nw[0],nw[1]],gote:[nw[2],nw[3]]}; delete d2.handSet; ev(g,'shuffleHand',{owner:o}); }
         break; }
