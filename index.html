@@ -302,7 +302,7 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 /* 各行は縮まず、余った高さを盤面の枠が全部使う。盤面の大きさは fitBoard() が枠を実測して px で入れる */
 #scrBattle{overflow:hidden}
 #scrBattle>.row,#scrBattle>.panel,#scrBattle>.msg,#scrBattle>#handBox{flex:none}
-#scrBattle .bwrap{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center}
+#scrBattle .bwrap{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #scrBattle .board{width:min(100%,312px)}   /* JS が入るまでの仮の幅 */
 #beams{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:visible}
 #guide{position:absolute;inset:0;pointer-events:none;z-index:7;overflow:visible}
@@ -3583,6 +3583,7 @@ function hpHide(bd){
   return !!(G.fb&&G.fb[ME]&&G.fb[ME].hide);
 }
 function render(bd){
+  fitBoard();
   if(!G) return;
   const board=bd||VIEW||curBoard();
   const pLead=board.find(f=>f&&f.lead&&f.owner===ME)||E.lead(G,ME);
