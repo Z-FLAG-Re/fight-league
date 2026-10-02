@@ -1668,16 +1668,14 @@ function dmg(g,f,n,kind,src){
     if(f.hp-n<fl) n=Math.max(0,f.hp-fl);
     if(n<=0){ ev(g,'floor',{uid:f.uid}); return; }
   }
-  // 敵メンバーへのファイトダメージ加算
-  if(!f.lead&&kind==='fight'&&src){
-    for(const m of alive(g)) if(m.owner===src.owner){ const md=skl(m);
-      if(md&&md.tr==='memberDmgUp'&&m.owner!==f.owner&&(!md.onlyLong||ty(f)==='l')) n+=md.v; }
+  // 敵メンバーへのファイトダメージ加算。トリガーも対象指定もないスキルなので、持っている本人の攻撃だけに乗る
+  if(!f.lead&&kind==='fight'&&src&&src.owner!==f.owner){ const md=skl(src);
+    if(md&&md.tr==='memberDmgUp'&&(!md.onlyLong||ty(f)==='l')) n+=md.v;
   }
-  // 敵リーダーへのファイトダメージ加算
-  if(f.lead&&kind==='fight'&&src){
-    for(const m of alive(g)) if(m.owner===src.owner){ const md=skl(m);
-      if(md&&md.tr==='leaderDmgUp'&&m.owner!==f.owner) n+=md.v;
-      if(m.ldrUp&&m.owner!==f.owner) n+=m.ldrUp; }
+  // 敵リーダーへのファイトダメージ加算。同じく本人だけ（ldrUp も付与された本人の攻撃だけ）
+  if(f.lead&&kind==='fight'&&src&&src.owner!==f.owner){ const md=skl(src);
+    if(md&&md.tr==='leaderDmgUp') n+=md.v;
+    if(src.ldrUp) n+=src.ldrUp;
   }
   // 味方リーダーが受けるダメージを軽減する常時効果（自陣にいるときのみ）
   if(f.lead){ let red=0;
