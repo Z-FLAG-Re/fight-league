@@ -611,7 +611,12 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
     <button class="btn pri" onclick="setRule('canon')">原作準拠版</button>
     <button class="btn pri" onclick="setRule('re')">独自調整版</button>
   </div>
-  <div class="mutx" style="margin-top:12px;line-height:1.7">原作準拠版は原作のカード性能どおりです。独自調整版は一部カードのスキル・FB・アーツを独自に調整した版で、28枚の性能が変わります。カードの枚数（606枚）はどちらも同じです。<br>オンライン対戦は、同じルールを選んだ相手とだけ当たります。</div>
+  <div class="mutx" style="margin-top:12px;line-height:1.7">
+    <b style="color:var(--text)">原作準拠版</b>：原作のカード性能どおり。<b>597枚</b>。<br>
+    <b style="color:var(--text)">独自調整版</b>：28枚のスキル・FB・アーツを独自に調整し、さらに<b>9枚を追加</b>した版。<b>606枚</b>。<br>
+    <span style="display:inline-block;margin-top:6px">追加9枚を含むデッキは独自調整版でしか使えません（原作準拠版では一覧に出ません）。それ以外のデッキは両方で共通です。</span><br>
+    オンライン対戦は、同じルールを選んだ相手とだけ当たります。
+  </div>
 </section>
 
 <section id="scrMode" class="screen">
@@ -627,7 +632,7 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
 
 <section id="scrHome" class="screen">
   <h1 id="homeTitle">ファイトリーグ</h1>
-  <div class="mutx" style="margin-bottom:9px">GGG 115 ／ TOYS 106 ／ アスクリ 101 ／ JP 98 ／ 十八番街 121 ／ フリーランス 65（全606枚）</div>
+  <div class="mutx" id="homeCount" style="margin-bottom:9px"></div>
   <div class="panel" id="homeDeck" style="margin-bottom:6px"></div>
   <div class="mutx" id="homeCpu" style="margin-bottom:11px"></div>
   <div class="stack">
@@ -1547,15 +1552,21 @@ const CANON_PATCH={
 const ROSTER={}; R.forEach(c=>ROSTER[c.k]=c);
 // 原作準拠版／独自調整版の切り替え：調整されているカードだけを差し替える
 const RE_CARDS={}; for(const k in CANON_PATCH) if(ROSTER[k]) RE_CARDS[k]=ROSTER[k];
+// 独自調整版で追加された9枚。原作準拠版では選べない（データは残すので既存の対戦ログは壊れない）
+const RE_ONLY=['t105','t106','t107','j097','j098','h118','h119','h120','h121'];
+let RULE_NOW='canon';
+const reOnly=k=>RE_ONLY.indexOf(k)>=0;
+const cardUsable=k=>!!ROSTER[k]&&(RULE_NOW==='re'||!reOnly(k));
 function applyRule(rule){
+  RULE_NOW=(rule==='re')?'re':'canon';
   for(const k in CANON_PATCH){
-    const c=(rule==='re')?RE_CARDS[k]:CANON_PATCH[k]; if(!c) continue;
+    const c=(RULE_NOW==='re')?RE_CARDS[k]:CANON_PATCH[k]; if(!c) continue;
     ROSTER[k]=c; const i=R.findIndex(x=>x.k===k); if(i>=0) R[i]=c;
   }
 }
 const BRANDS={ggg:'GGG',toys:'TOYS of the DEAD',ask:'アスリートクリーチャーズ',jp:'JP',j18:'十八番街',free:'フリーランス'};
 function brandOf(k){ return (ROSTER[k]&&ROSTER[k].b)||'ggg'; }
-function deckList(brand){ return Object.keys(ROSTER).filter(k=>brandOf(k)===brand&&ROSTER[k].r!=='T'&&!ROSTER[k].nodeck); }
+function deckList(brand){ return Object.keys(ROSTER).filter(k=>brandOf(k)===brand&&ROSTER[k].r!=='T'&&!ROSTER[k].nodeck&&cardUsable(k)); }
 
 //---------- deck validation ----------
 function validateDeck(keys,leaderKey){
@@ -1564,6 +1575,7 @@ function validateDeck(keys,leaderKey){
   const bs=[...new Set(keys.filter(k=>ROSTER[k]).map(brandOf))].filter(b=>b!=='free');
   if(bs.length>1) errs.push('ブランドを混成できません（'+bs.map(b=>BRANDS[b]||b).join(' / ')+'）※フリーランスのみ併用可');
   if(keys.some(k=>ROSTER[k]&&(ROSTER[k].r==='T'||ROSTER[k].nodeck))) errs.push('トークン・進化先はデッキに入れられません');
+  if(keys.some(reOnly)&&RULE_NOW!=='re') errs.push('独自調整版だけのカードが入っています（原作準拠版では使えません）');
   if(new Set(keys).size!==keys.length) errs.push('同名カードの重複');
   const us=keys.filter(k=>ROSTER[k]&&ROSTER[k].r==='US');
   if(us.length>1) errs.push('US級はデッキに1枚まで');
@@ -3171,7 +3183,7 @@ function cpuFB(g,o){
   return gain>=(lead(g,o).hp<=1200?FB_MARGIN_PINCH:FB_MARGIN);
 }
 
-const API={isTag,guideFor,ROSTER,applyRule,COLS,ROWS,CELLS,ALLD,DIR,LEAD_ARTS,other,validateDeck,mk,eff,ty,absA,at,alive,mem,lead,
+const API={isTag,guideFor,ROSTER,applyRule,reOnly,deckList,cardUsable,COLS,ROWS,CELLS,ALLD,DIR,LEAD_ARTS,other,validateDeck,mk,eff,ty,absA,at,alive,mem,lead,
   empties,rangeSet,around,dmg,heal,chain,place,useFB,drawHands,openingOptions,chooseOpening,
   newGame,startTurn,isFirstSingle,legal,play,endTurn,clone,cpuMove,cpuFB,fbUsable,buildDeck,synScore,pick,pickN,applyPassives,snap,cardView,cardKey,cardMod,selSpecPlace,selSpecFB,cpuPickSel,BRANDS,brandOf,deckList,removeFighter,transform,timeLimitFor,limitTick,limitFire,inOwnZone,moveTo,moveRandom,moveNear,evolve};
 if(typeof window!=='undefined') window.FL=API;
@@ -3188,11 +3200,26 @@ let RULE='canon';
 try{ const r=localStorage.getItem('fl_rule'); if(r==='re'||r==='canon') RULE=r; }catch(e){}
 E.applyRule(RULE);
 const RULEJA=()=>RULE==='re'?'独自調整版':'原作準拠版';
+let BOOTED=0;
 function ruleLabel(){ const t=$('homeTitle');
-  if(t) t.innerHTML='ファイトリーグ<span class="sub" style="margin-left:8px">'+RULEJA()+'</span>'; }
+  if(t) t.innerHTML='ファイトリーグ<span class="sub" style="margin-left:8px">'+RULEJA()+'</span>';
+  const c=$('homeCount');
+  if(c){ const B=[['ggg','GGG'],['toys','TOYS'],['ask','アスクリ'],['jp','JP'],['j18','十八番街'],['free','フリーランス']];
+    const KS=Object.keys(E.ROSTER).filter(k=>E.cardUsable(k));
+    let tot=0; const parts=B.map(([b,ja])=>{ const v=KS.filter(k=>E.brandOf(k)===b).length; tot+=v; return ja+' '+v; });
+    c.textContent=parts.join(' ／ ')+'（全'+tot+'枚）'; }
+  if(BOOTED) renderHome(); }
 function setRule(r){ RULE=(r==='re')?'re':'canon';
   try{ localStorage.setItem('fl_rule',RULE); }catch(e){}
-  E.applyRule(RULE); ruleLabel(); show('scrMode'); }
+  E.applyRule(RULE); fixSel(); ruleLabel(); show('scrMode'); }
+// いま使えないデッキが選ばれていたら、使えるものに付け替える
+function fixSel(){
+  for(const d of DECKS) d._err=E.validateDeck([d.leader,...d.members],d.leader);
+  for(const d of CDECKS) d._err=E.validateDeck([d.leader,...d.members],d.leader);
+  if(!ruleOK(DECKS.find(d=>d.id===SEL))) SEL=(DECKS.filter(ruleOK)[0]||{}).id??null;
+  if(!ruleOK(CDECKS.find(d=>d.id===CSEL))) CSEL=null;
+  if(!pairRuleOK(TPAIRS.find(p=>p.id===TSEL))) TSEL=(TPAIRS.filter(pairRuleOK)[0]||{}).id??null;
+}
 const RORD={US:0,S:1,A:2,B:3};
 const TYJA=t=>t==='l'?'長射':'単射';
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -3274,8 +3301,10 @@ async function save(){ if(!currentUser)return;
     },{merge:true});
   }catch(e){}
 }
-const selDeck=()=>DECKS.find(d=>d.id===SEL)||null;
-const selCpuDeck=()=>CDECKS.find(d=>d.id===CSEL)||null;
+// 独自調整版だけのカードを含むデッキは、原作準拠版では使わない（一覧にも出さない）
+const ruleOK=d=>!d||RULE==='re'||![d.leader,...(d.members||[])].some(k=>E.reOnly(k));
+const selDeck=()=>{ const d=DECKS.find(d=>d.id===SEL)||null; return ruleOK(d)?d:null; };
+const selCpuDeck=()=>{ const d=CDECKS.find(d=>d.id===CSEL)||null; return ruleOK(d)?d:null; };
 const cpuMode=()=>LISTM==='cpu';
 const listArr=()=>cpuMode()?CDECKS:DECKS;
 const listSel=()=>cpuMode()?CSEL:SEL;
@@ -3320,8 +3349,9 @@ function renderHome(){
 function renderDeckList(){
   const box=$('deckList'); box.innerHTML='';
   if(!cpuMode()) DECKS=DECKS.filter(d=>!/^s\d/.test(d.id));
-  const A=listArr(), S=listSel();
-  if(!A.length){ box.innerHTML='<div class="mutx">'+(cpuMode()?'CPUデッキがありません。作らなければ毎回ランダム選出になります。':'デッキがありません。')+'</div>'; return; }
+  const A=listArr().filter(ruleOK), S=listSel();
+  if(!A.length){ box.innerHTML='<div class="mutx">'+(cpuMode()?'CPUデッキがありません。作らなければ毎回ランダム選出になります。':'デッキがありません。')+
+    (listArr().length?'<br>（独自調整版だけのカードを含むデッキは、原作準拠版では表示されません）':'')+'</div>'; return; }
   for(const d of A){
     const L=RO[d.leader]||{n:'(リーダー未設定)',a:[],t:'n',atk:0,r:'B'};
     const row=document.createElement('div');
@@ -3343,7 +3373,8 @@ function renderDeckList(){
 function setMode(m){ TAGM=(m==='tag'); renderHome(); show('scrHome'); }
 const deckById=id=>DECKS.find(d=>d.id===id)||null;
 const deckBad=d=>!d||!RO[d.leader]||E.validateDeck([d.leader,...d.members],d.leader).length>0;
-const selPair=()=>TPAIRS.find(p=>p.id===TSEL)||null;
+const selPair=()=>{ const p=TPAIRS.find(p=>p.id===TSEL)||null; return pairRuleOK(p)?p:null; };
+const pairRuleOK=p=>!!p&&ruleOK(deckById(p.s))&&ruleOK(deckById(p.g));
 const pairDecks=p=>{ if(!p) return null; const a=deckById(p.s), b=deckById(p.g); return (deckBad(a)||deckBad(b))?null:[a,b]; };
 function deckLine(d,label){
   const L=d&&RO[d.leader];
@@ -3355,8 +3386,10 @@ function deckLine(d,label){
 function openTagList(){ renderTagList(); show('scrTag'); }
 function renderTagList(){
   const box=$('tagList'); box.innerHTML='';
-  if(!TPAIRS.length){ box.innerHTML='<div class="mutx">組み合わせがありません。</div>'; return; }
-  for(const p of TPAIRS){
+  const PL=TPAIRS.filter(pairRuleOK);
+  if(!PL.length){ box.innerHTML='<div class="mutx">組み合わせがありません。'+
+    (TPAIRS.length?'<br>（独自調整版だけのカードを含む組み合わせは、原作準拠版では表示されません）':'')+'</div>'; return; }
+  for(const p of PL){
     const row=document.createElement('div');
     row.className='deckrow'+(p.id===TSEL?' cur':'')+(pairDecks(p)?'':' bad');
     row.innerHTML=`<div style="flex:1;min-width:0">${deckLine(deckById(p.s),'先手用')}${deckLine(deckById(p.g),'後手用')}</div>${p.id===TSEL?'✓':''}`;
@@ -5329,6 +5362,7 @@ async function recvPacket(raw){
 
 //====== boot ======
 async function bootGame(){ ruleLabel(); await load();
+  BOOTED=1;
   DECKS=(Array.isArray(DECKS)?DECKS:[]).filter(d=>d&&d.id&&Array.isArray(d.members));
   // 保存済みデッキの整合性チェック（不正なら印を付ける）
   for(const d of DECKS){ d._err=E.validateDeck([d.leader,...d.members],d.leader); }
