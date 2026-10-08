@@ -538,6 +538,22 @@ input[type=text]{background:#0b0e14;border:1px solid var(--line);color:var(--tex
   background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.85) 32%,rgba(255,255,255,0) 100%);
   box-shadow:0 0 6px rgba(255,255,255,.75)}
 .eorb.dorb{animation:dOrb .45s ease-out forwards}
+/* 統合時に抜けていた分（手札の演出・退場スキルの球） */
+#handBox{position:relative}
+.handfx{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:20;
+  font-weight:900;font-size:22px;letter-spacing:.08em;color:var(--hc,#fff);text-shadow:0 0 10px var(--hc,#fff),0 2px 6px #000;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,.55) 0%,rgba(0,0,0,0) 70%);animation:hfx 1.3s ease-out both}
+.handfx small{font-size:13px;margin-top:2px;letter-spacing:0}
+@keyframes hfx{0%{opacity:0;transform:scale(1.35)}18%{opacity:1;transform:scale(1)}75%{opacity:1}100%{opacity:0}}
+.hcfx{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:5;pointer-events:none;white-space:nowrap;
+  background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.92);color:#fff;border-radius:9px;padding:1px 7px;font-size:11px;font-weight:900;
+  animation:skPop .3s cubic-bezier(.2,1.6,.4,1) both}
+.eorb{position:absolute;border-radius:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,#fff 0%,rgba(255,255,255,.9) 35%,rgba(255,255,255,.35) 60%,rgba(255,255,255,0) 72%);
+  box-shadow:0 0 18px 6px rgba(255,255,255,.55);animation:orbP 1.1s ease-in-out infinite}
+.eorb.go{animation:orbGo .3s ease-out forwards}
+@keyframes orbP{0%,100%{opacity:.75;transform:translate(-50%,-50%) scale(.9)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
+@keyframes orbGo{to{opacity:0;transform:translate(-50%,-50%) scale(1.8)}}
 @keyframes dOrb{0%{transform:translate(-50%,-50%) scale(.15);opacity:0}
   55%{opacity:.85}78%{transform:translate(-50%,-50%) scale(1);opacity:1}
   100%{transform:translate(-50%,-50%) scale(1.28);opacity:0}}
@@ -4242,7 +4258,8 @@ function cardBackSVG(){
     +`<circle r="${R-5.4}" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.1"/>`
     +`</svg>`;
 }
-async function handRefill(){ const hb=$('handBox'), hd=$('hand'); if(!hb||!hd) return;
+async function handRefill(){ const hb=$('handBox'), hd=$('hand');
+  if(!hb||!hd){ const h0=$('hand'); if(h0) h0.classList.remove('refill'); return; }   // 演出を出せないときも手札は必ず見せる
   renderHand(); hd.classList.add('refill');
   // 矢印の棒部分が手札の欄と同じ太さになるように、手札の欄の位置と大きさから決める（棒は高さの80%、長さは手札の幅と同じ）
   const rb=hb.getBoundingClientRect(), rh=hd.getBoundingClientRect(), H=Math.max(40,rh.height);
@@ -4341,7 +4358,7 @@ async function anim(){
     evs.push(e);
   }
   LP=G.log.length;
-  if(!evs.length){ VIEW=null; render(); return; }
+  if(!evs.length){ VIEW=null; render(); const h0=$('hand'); if(h0) h0.classList.remove('refill'); return; }
   for(const e of evs){
     if(e.s) VIEW=e.s;
     switch(e.t){
@@ -4454,6 +4471,7 @@ async function anim(){
     if(e.s) prevView=e.s;
   }
   clearBeams(); orbClear(); VIEW=null; render();
+  { const h0=$('hand'); if(h0) h0.classList.remove('refill'); }   // 取りこぼしても手札は必ず見える状態で終わる
 }
 function healFx(e){ const ci=uidCellIn(VIEW,e.uid);
   if(ci>=0) fl(ci,'+'+e.amt,'#7DE8A8');
