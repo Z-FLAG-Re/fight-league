@@ -2352,6 +2352,7 @@ function runInner(g,src,ops,ctx){
         else if(h){ const pool=d2.all.slice();
           const nw=pickN(g,pool,4); d2.pool=pool.filter(k=>!nw.includes(k));
           g.hands[o]={sente:[nw[0],nw[1]],gote:[nw[2],nw[3]]}; delete d2.handSet; ev(g,'shuffleHand',{owner:o}); }
+        d2.nextHand=null;   // 1ターン目に撃ったとき、ターン終了時に「選ばなかった4枚」で上書きされないように
         break; }
 
       case 'clean': { for(const f of T){ f.noSk=true; f.lim=null; f.pB=0; f.tB=0; f.hB=0; f.prot=0; f.barrier=false;
